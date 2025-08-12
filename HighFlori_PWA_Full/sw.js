@@ -1,2 +1,0 @@
-self.addEventListener('install',e=>{e.waitUntil(caches.open('highflori-v1').then(c=>c.addAll(['./highflori_ultra_weather_full_pwa.html','./manifest.json','./highflori_icon_192.png','./highflori_icon_512.png','./highflori_icon_1024.png'])))});
-self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)))});
