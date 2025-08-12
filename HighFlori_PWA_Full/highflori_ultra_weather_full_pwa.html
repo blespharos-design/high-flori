@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+
+<link rel="apple-touch-icon" href="highflori_icon_180.png" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#111111" />
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>High Flori Ultra – mit Wetter</title>
+<meta name="theme-color" content="#111111" />
+<style>
+:root {
+  --bg:#f5f5f5; --fg:#111; --card:#fff; --muted:#666; --accent:#111; --border:#e5e5e5;
+  --input-bg:#ffffff; --input-fg:#111111; --input-border:#e5e5e5; --input-ph:#8a8a8a;
+}
+*{ box-sizing:border-box }
+body { margin:0; font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--fg); }
+header { display:flex; align-items:center; gap:10px; padding:12px 14px; background:var(--accent); color:#fff; position:sticky; top:0; z-index:2 }
+.appicon { width:26px; height:26px; border-radius:8px; border:1px solid #ffffff40 }
+.wrap { max-width:1300px; margin:16px auto; padding:0 12px; }
+.toolbar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+.toolbar input, .toolbar select { padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:#fff; }
+.toolbar button { padding:8px 12px; border-radius:10px; border:0; background:#111; color:#fff; cursor:pointer; }
+.toolbar .ghost { background:#fff; color:#111; border:1px solid var(--border); }
+.layout { display:grid; grid-template-columns: 1fr 320px; gap:14px; align-items:start; }
+@media (max-width: 980px){ .layout{ grid-template-columns: 1fr; } }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:12px; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; }
+.row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#6b7280; }
+input, select, textarea {
+  width:100%; padding:8px 10px; border:1px solid var(--input-border); border-radius:10px;
+  background:var(--input-bg); color:var(--input-fg); caret-color:var(--input-fg); font-size:16px;
+}
+input::placeholder, textarea::placeholder { color:var(--input-ph); opacity:1; }
+input:focus, select:focus, textarea:focus { outline:2px solid #4b9cff; outline-offset:1px; }
+textarea{ resize:vertical }
+.badges { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.badge { background:#f4f4f5; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; color:#444; }
+.actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+.actions button { flex:1; padding:8px 10px; border-radius:10px; border:0; color:#fff; cursor:pointer; min-width:140px; }
+.a1{ background:#2563eb } .a2{ background:#059669 } .a3{ background:#7c3aed } .danger { background:#b91c1c }
+.gallery { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:8px; }
+.thumb { width:120px; height:120px; object-fit:cover; border-radius:10px; border:1px solid var(--border); background:#eee; flex:0 0 auto; }
+.section { margin:14px 0 6px; font-weight:600 }
+hr.sep { border:0; border-top:1px dashed var(--border); margin:12px 0 }
+footer{ text-align:center; color:#888; padding:20px 0 40px }
+
+/* Gadgets (rechte Spalte) */
+.gadgets .title { font-weight:700; margin-bottom:8px }
+.weather .now { display:flex; align-items:center; gap:10px; }
+.weather .deg { font-size:28px; font-weight:700 }
+.weather .meta { color:#555; font-size:13px }
+.weather .days { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:8px }
+.weather .d { border:1px solid var(--border); border-radius:10px; padding:8px; text-align:center; }
+.weather .d .t { font-size:12px; color:#666 }
+.weather .d .x { font-size:16px; font-weight:700 }
+
+/* Dark mode vars switch */
+.dark body { background:#0b0b0b; color:#f3f4f6 }
+</style>
+</head>
+<body>
+<header>
+  <div class="appicon"></div>
+  <div>High Flori Ultra</div>
+</header>
+
+<div class="wrap">
+  <div class="toolbar">
+    <input id="q" placeholder="Suche (Sorte, Ort, Notiz)" oninput="render()"/>
+    <select id="filterStage" onchange="render()">
+      <option value="">Alle Stadien</option>
+      <option>Vegi</option>
+      <option>Blüte</option>
+      <option>Trocknen</option>
+      <option>Cure</option>
+      <option>Archiv</option>
+    </select>
+    <select id="sortBy" onchange="render()">
+      <option value="updated">Sortieren: Zuletzt aktualisiert</option>
+      <option value="age">Alter (Keimung)</option>
+      <option value="stage">Stadium</option>
+      <option value="harvestSoon">Ernte bald</option>
+    </select>
+    <button onclick="addPlant()">+ Pflanze</button>
+    <button class="ghost" onclick="toggleDark()"><span id="modeLabel">Dark Mode</span></button>
+    <button class="ghost" onclick="openInstall()">📲 iPhone App</button>
+    <button class="ghost" onclick="backup()">Backup</button>
+    <label style="align-items:center; gap:8px; flex-direction:row;">
+      <input type="file" accept="application/json" style="display:none" id="restoreFile" onchange="restore(this.files[0])"/>
+      <button class="ghost" onclick="document.getElementById('restoreFile').click()">Restore</button>
+    </label>
+    <button onclick="exportCSV()">CSV</button>
+    <button onclick="printPDF()">PDF</button>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div id="stats" class="card" style="margin-bottom:12px"></div>
+      <div id="list" class="grid"></div>
+    </div>
+
+    <div class="gadgets">
+      <div class="card weather">
+        <div class="title">Wetter – Bad Lauterberg</div>
+        <div id="wxNow" class="now">
+          <div class="deg">–°</div>
+          <div class="meta">Lade Wetter…</div>
+        </div>
+        <div id="wxDays" class="days" aria-live="polite"></div>
+        <div style="margin-top:8px; text-align:right">
+          <button class="ghost" onclick="loadWeather()">Neu laden</button>
+        </div>
+      </div>
+      <!-- Platzhalter für weitere Gadgets -->
+    </div>
+  </div>
+</div>
+
+<footer>Offline lokal. Wetter lädt live von Open‑Meteo (ohne API‑Key). – High Flori Ultra</footer>
+
+<script>
+const KEY = "highflori_ultra_v1_gadgets";
+let state = load();
+autoDark();
+
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || { plants: [], dark:false }; }catch{ return { plants: [], dark:false }; } }
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+function autoDark(){ const h = new Date().getHours(); state.dark = (h >= 20 || h < 7); applyDark(); }
+function toggleDark(){ state.dark = !state.dark; save(); applyDark(); }
+function applyDark(){
+  if(state.dark){
+    document.documentElement.style.setProperty('--bg', '#0b0b0b');
+    document.documentElement.style.setProperty('--fg', '#f3f4f6');
+    document.documentElement.style.setProperty('--card', '#121212');
+    document.documentElement.style.setProperty('--border', '#2a2a2a');
+    document.documentElement.style.setProperty('--input-bg', '#121212');
+    document.documentElement.style.setProperty('--input-fg', '#f3f4f6');
+    document.documentElement.style.setProperty('--input-border', '#3a3a3a');
+    document.documentElement.style.setProperty('--input-ph', '#9aa0a6');
+    document.getElementById('modeLabel').textContent = 'Light Mode';
+  } else {
+    document.documentElement.style.setProperty('--bg', '#f5f5f5');
+    document.documentElement.style.setProperty('--fg', '#111');
+    document.documentElement.style.setProperty('--card', '#fff');
+    document.documentElement.style.setProperty('--border', '#e5e5e5');
+    document.documentElement.style.setProperty('--input-bg', '#ffffff');
+    document.documentElement.style.setProperty('--input-fg', '#111111');
+    document.documentElement.style.setProperty('--input-border', '#e5e5e5');
+    document.documentElement.style.setProperty('--input-ph', '#8a8a8a');
+    document.getElementById('modeLabel').textContent = 'Dark Mode';
+  }
+}
+
+const today = () => new Date().toISOString().slice(0,10);
+const daysSince = d => d ? Math.floor((Date.now() - new Date(d).getTime())/86400000) : null;
+
+function addPlant(){
+  const p = { id: crypto.randomUUID(), sorte:'', spitzname:'', stadium:'Vegi', ort:'Schrank', licht:'', topf:'', keim:'', flip:'', notiz:'', photos:[], logs:[], waterEvery:3, feedEvery:7, plannedHarvest:'', harvestWet:null, harvestDry:null, watts:null, areaM2:null, archived:false, updatedAt: new Date().toISOString() };
+  state.plants.unshift(p); save(); render();
+}
+function removePlant(id){ state.plants = state.plants.filter(p=>p.id!==id); save(); render(); }
+function idx(id){ return state.plants.findIndex(p=>p.id===id); }
+function upd(id, patch){ const i = idx(id); state.plants[i] = { ...state.plants[i], ...patch, updatedAt: new Date().toISOString() }; save(); render(); }
+function addLog(id, entry){ const i = idx(id); const withId = { id: crypto.randomUUID(), date: today(), type: entry.type||'note', vol:entry.vol||null, ec:entry.ec||null, ph:entry.ph||null, note:entry.note||'', photos:entry.photos||[] }; state.plants[i].logs.unshift(withId); save(); render(); }
+
+function exportCSV(){
+  const rows = [["plant_id","sorte","spitzname","stadium","date","type","vol_ml","ec","ph","note","harvest_wet","harvest_dry","watts","area_m2"]];
+  state.plants.forEach(p=> p.logs.forEach(l=> rows.push([p.id,p.sorte,p.spitzname,p.stadium,l.date,l.type||'',l.vol||'',l.ec||'',l.ph||'',(l.note||'').replaceAll('"','""'),p.harvestWet??'',p.harvestDry??'',p.watts??'',p.areaM2??''])));
+  const csv = rows.map(r=> r.map(x=>`"${(x??'')}"`).join(',')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); const a = Object.assign(document.createElement('a'),{href:url,download:`highflori_logs_${today()}.csv`}); a.click(); URL.revokeObjectURL(url);
+}
+function backup(){ const url = URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'})); const a = Object.assign(document.createElement('a'),{href:url,download:`highflori_backup_${today()}.json`}); a.click(); URL.revokeObjectURL(url); }
+function restore(file){ const r = new FileReader(); r.onload = () => { try{ state = JSON.parse(r.result); save(); render(); }catch(e){ alert('Backup-Datei ungültig'); } }; r.readAsText(file); }
+function openInstall(){ alert('Für Homescreen brauchst du eine URL (z. B. GitHub Pages). Dann: Safari teilen → Zum Home‑Bildschirm.'); }
+function printPDF(){ window.print(); }
+
+// --- Render Plants (gekürzt: nur Kernfelder & Aktionen) ---
+function render(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const fStage = document.getElementById('filterStage').value;
+  const sortBy = document.getElementById('sortBy').value;
+  const list = document.getElementById('list');
+  const stats = document.getElementById('stats');
+
+  let items = state.plants.slice();
+  if(fStage) items = items.filter(p => fStage==='Archiv' ? p.archived : p.stadium===fStage);
+  if(q) items = items.filter(p => [p.sorte,p.spitzname,p.stadium,p.ort,p.licht,p.notiz].filter(Boolean).some(s=>String(s).toLowerCase().includes(q)));
+
+  items.sort((a,b)=> {
+    if(sortBy==='age') return (new Date(a.keim||'2100-01-01') - new Date(b.keim||'2100-01-01'));
+    if(sortBy==='stage') return String(a.stadium).localeCompare(String(b.stadium));
+    if(sortBy==='harvestSoon') return (new Date(a.plannedHarvest||'2100-01-01') - new Date(b.plannedHarvest||'2100-01-01'));
+    return new Date(b.updatedAt) - new Date(a.updatedAt);
+  });
+
+  // Stats (trocken gesamt, etc.)
+  const all = state.plants.filter(p=>!p.archived);
+  const totalDry = all.reduce((s,p)=> s + (Number(p.harvestDry)||0), 0);
+  const totalWet = all.reduce((s,p)=> s + (Number(p.harvestWet)||0), 0);
+  const totalWatt = all.reduce((s,p)=> s + (Number(p.watts)||0), 0);
+  const totalArea = all.reduce((s,p)=> s + (Number(p.areaM2)||0), 0);
+  const gPerW = totalWatt? (totalDry/totalWatt).toFixed(3): '—';
+  const gPerM2 = totalArea? Math.round(totalDry/totalArea): '—';
+  stats.innerHTML = `<div class="row">
+    <div><div class="section">🏁 Ertrag gesamt (trocken)</div><div style="font-size:24px;font-weight:700">${totalDry} g</div></div>
+    <div><div class="section">💧 Ertrag nass</div><div style="font-size:24px;font-weight:700">${totalWet} g</div></div>
+    <div><div class="section">⚡ g/W</div><div style="font-size:24px;font-weight:700">${gPerW}</div></div>
+    <div><div class="section">📐 g/m²</div><div style="font-size:24px;font-weight:700">${gPerM2}</div></div>
+  </div>`;
+
+  list.innerHTML = items.map(p=> cardHTML(p)).join('');
+  if(state.plants.length===0) addPlant();
+}
+
+// Karte (kompakt gehalten)
+function cardHTML(p){
+  const dVeg = daysSince(p.keim); const dBloom = daysSince(p.flip);
+  const lastWater = p.logs.find(l=>l.type==='water')?.date;
+  const nextWaterD = lastWater ? new Date(new Date(lastWater).getTime() + (p.waterEvery??3)*86400000) : null;
+  const f = p.logs.find(l=>l.type==='feed'); const nextFeedD = f ? new Date(new Date(f.date).getTime() + (p.feedEvery??7)*86400000) : null;
+  const nextWater = nextWaterD ? nextWaterD.toLocaleDateString() : '—';
+  const nextFeed = nextFeedD ? nextFeedD.toLocaleDateString() : '—';
+  const dueWater = nextWaterD && nextWaterD < new Date();
+  const dueFeed = nextFeedD && nextFeedD < new Date();
+
+  return `
+  <div class="card">
+    <div class="row">
+      <label>Sorte<input value="${p.sorte||''}" onblur="upd('${p.id}',{sorte:this.value})"/></label>
+      <label>Spitzname<input value="${p.spitzname||''}" onblur="upd('${p.id}',{spitzname:this.value})"/></label>
+      <label>Stadium<select onchange="upd('${p.id}',{stadium:this.value})">${['Vegi','Blüte','Trocknen','Cure','Archiv'].map(s=>`<option ${p.stadium===s?'selected':''}>${s}</option>`).join('')}</select></label>
+      <label>Standort<input value="${p.ort||''}" onblur="upd('${p.id}',{ort:this.value})"/></label>
+      <label>Keimdatum<input type="date" value="${p.keim||''}" onchange="upd('${p.id}',{keim:this.value})"/></label>
+      <label>Flip (12/12)<input type="date" value="${p.flip||''}" onchange="upd('${p.id}',{flip:this.value})"/></label>
+      <label>Ernte geplant<input type="date" value="${p.plannedHarvest||''}" onchange="upd('${p.id}',{plannedHarvest:this.value})"/></label>
+      <label>Watt<input type="number" value="${p.watts??''}" onblur="upd('${p.id}',{watts:Number(this.value)||null})"/></label>
+      <label>Fläche (m²)<input type="number" step="0.01" value="${p.areaM2??''}" onblur="upd('${p.id}',{areaM2:Number(this.value)||null})"/></label>
+      <label>Notiz<textarea rows="2" onblur="upd('${p.id}',{notiz:this.value})">${p.notiz||''}</textarea></label>
+    </div>
+
+    <div class="badges">
+      <span class="badge">Veg: ${dVeg??'—'} Tage</span>
+      <span class="badge">Blüte: ${dBloom??'—'} Tage</span>
+      <span class="badge" style="border-color:${dueWater?'#dc2626':'var(--border)'};color:${dueWater?'#dc2626':'#444'}">Nächste Bewässerung: ${nextWater}</span>
+      <span class="badge" style="border-color:${dueFeed?'#dc2626':'var(--border)'};color:${dueFeed?'#dc2626':'#444'}">Nächste Düngung: ${nextFeed}</span>
+      <span class="badge">Logs: ${p.logs.length}</span>
+    </div>
+
+    <div class="actions">
+      <button class="a1" onclick="addLog('${p.id}',{type:'water', vol:1000, ec:1.3, ph:6.5, note:'Gießen'})">Schnell: Gießen</button>
+      <button class="a2" onclick="addLog('${p.id}',{type:'feed', vol:1000, ec:1.6, ph:6.5, note:'Düngen'})">Schnell: Düngen</button>
+      <button class="a3" onclick="addLog('${p.id}',{type:'train', note:'Toppen/LST'})">Schnell: Training</button>
+      <button class="danger" onclick="removePlant('${p.id}')">Löschen</button>
+    </div>
+  </div>`;
+}
+
+// -------------- Wetter (Open-Meteo, ohne Key) --------------
+async function loadWeather(){
+  try{
+    const geo = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=Bad%20Lauterberg&count=1&language=de&format=json').then(r=>r.json());
+    const place = geo.results?.[0];
+    if(!place){ throw new Error('Ort nicht gefunden'); }
+    const { latitude, longitude, name, country } = place;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,precipitation,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`;
+    const wx = await fetch(url).then(r=>r.json());
+    renderWeather(name, country, wx);
+  }catch(e){
+    document.getElementById('wxNow').innerHTML = '<div class="deg">–°</div><div class="meta">Wetter konnte nicht geladen werden.</div>';
+    document.getElementById('wxDays').innerHTML = '';
+  }
+}
+
+function iconFor(code){
+  // Simplified mapping using emojis
+  const m = {
+    0:'☀️',1:'🌤️',2:'⛅',3:'☁️',
+    45:'🌫️',48:'🌫️',
+    51:'🌦️',53:'🌦️',55:'🌧️',
+    61:'🌦️',63:'🌧️',65:'🌧️',
+    71:'🌨️',73:'🌨️',75:'❄️',
+    95:'⛈️',96:'⛈️',99:'⛈️'
+  };
+  return m[code] || '🌡️';
+}
+
+function renderWeather(name, country, wx){
+  const now = wx.current_weather;
+  const deg = Math.round(now.temperature);
+  const ico = iconFor(now.weathercode);
+
+  document.getElementById('wxNow').innerHTML =
+    `<div class="deg">${deg}°</div>
+     <div class="meta">${ico} ${name}, ${country}<br/>Wind ${Math.round(now.windspeed)} km/h</div>`;
+
+  const days = wx.daily.time.slice(0,3).map((d,i)=>{
+    const tmax = Math.round(wx.daily.temperature_2m_max[i]);
+    const tmin = Math.round(wx.daily.temperature_2m_min[i]);
+    const p = Math.round(wx.daily.precipitation_sum[i]||0);
+    return `<div class="d">
+      <div class="t">${new Date(d).toLocaleDateString()}</div>
+      <div class="x">${tmax}° / ${tmin}°</div>
+      <div class="t">Nied.: ${p} mm</div>
+    </div>`;
+  }).join('');
+  document.getElementById('wxDays').innerHTML = days;
+}
+
+loadWeather();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+</script>
+
+</body>
+</html>
